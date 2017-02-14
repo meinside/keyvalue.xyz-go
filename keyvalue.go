@@ -132,9 +132,13 @@ func request(method, url string) (result string, err error) {
 		if resp, err = client.Do(req); err == nil {
 			defer resp.Body.Close()
 
-			res, _ := ioutil.ReadAll(resp.Body)
+			if resp.StatusCode == 200 {
+				res, _ := ioutil.ReadAll(resp.Body)
 
-			return strings.TrimSuffix(string(res), "\n"), nil
+				return strings.TrimSuffix(string(res), "\n"), nil
+			} else {
+				return "", fmt.Errorf("Request error: %s", resp.Status)
+			}
 		}
 	}
 

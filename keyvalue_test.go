@@ -23,15 +23,15 @@ func TestKeyValue(t *testing.T) {
 	if kv, err := NewKeyValue(KeyForTesting); err == nil {
 		// Set
 		if err := kv.SetAndValidate(val); err != nil {
-			t.Error("Failed to set value: ", val, " - ", err)
+			t.Error("Failed to set value:", val, "-", err)
 		}
 
 		// Get
 		if _, err := kv.Get(); err != nil {
-			t.Error("Failed to get value for key: ", kv.Key, " - ", err)
+			t.Error("Failed to get value for key:", kv.Key, "-", err)
 		}
 	} else {
-		t.Error("Failed to generate a new key: ", err)
+		t.Error("Failed to generate a new key:", err)
 	}
 }
 
@@ -44,34 +44,34 @@ func TestKeyValueObj(t *testing.T) {
 		if err := kv.SetObjectAndValidateFunc(val1, func(v string, o interface{}) bool {
 			var r obj // returned object
 			if err := json.Unmarshal([]byte(v), &r); err != nil {
-				t.Error("Failed to unmarshal value: ", v, " - ", err)
+				t.Error("Failed to unmarshal value:", v, "-", err)
 			}
 
 			if r.Name == val1.Name && r.Age == val1.Age && r.Occupation == val1.Occupation {
 				return true
 			} else {
-				t.Error("Unmarshalled object is different from request object: ", r, " - ", val1)
+				t.Error("Unmarshalled object is different from request object:", r, "-", val1)
 				return false
 			}
 		}); err != nil {
-			t.Error("Failed to set value: ", val1, " - ", err)
+			t.Error("Failed to set value:", val1, "-", err)
 		}
 
 		// Get
 		if _, err := kv.Get(); err != nil {
-			t.Error("Failed to get value for key: ", kv.Key, " - ", err)
+			t.Error("Failed to get value for key:", kv.Key, "-", err)
 		}
 
 		// Set again (not validating)
 		if err := kv.SetObject(val2); err != nil {
-			t.Error("Failed to update value to: ", val2, " - ", err)
+			t.Error("Failed to update value to:", val2, "-", err)
 		}
 
 		// Get
 		if _, err := kv.Get(); err != nil {
-			t.Error("Failed to get updated value for key: ", kv.Key, " - ", err)
+			t.Error("Failed to get updated value for key:", kv.Key, "-", err)
 		}
 	} else {
-		t.Error("Failed to generate a new key: ", err)
+		t.Error("Failed to generate a new key:", err)
 	}
 }
