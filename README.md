@@ -126,7 +126,7 @@ func main() {
 
 # Known issues / Todos
 
-- [ ] Requests for keys with `.` return nothing (eg. "my.creative.keyname")
+- [ ] Requests for keys with `.` fail with HTTP 400 (eg. "my.creative.keyname")
 
 # License
 
