@@ -92,6 +92,30 @@ func (kv *KeyValue) SetObject(obj interface{}) error {
 	return err
 }
 
+// SetObjectAndValidate sets an object and validate it by calling the given function
+func (kv *KeyValue) SetObjectAndValidate(obj interface{}, equals func(returned string, requested interface{}) bool) error {
+	var err error
+	var bytes []byte
+
+	bytes, err = json.Marshal(obj)
+	if err == nil {
+		err = kv.Set(string(bytes))
+		if err == nil {
+			var val string
+			val, err = kv.Get()
+			if err == nil {
+				if equals(val, obj) {
+					return nil
+				}
+
+				return fmt.Errorf("Validation failed: `%s` differs from `%+v`", val, obj)
+			}
+		}
+	}
+
+	return err
+}
+
 // Get gets a stored value
 func (kv *KeyValue) Get() (string, error) {
 	// request format: "https://api.keyvalue.xyz/0123456/some-key"
