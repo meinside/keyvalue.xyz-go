@@ -6,21 +6,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
+// KeyValue struct
 type KeyValue struct {
 	Token string `json:"token"`
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
-// Get a new key-value with given key string
+// NewKeyValue gets a new key-value with given key string
 func NewKeyValue(key string) (kv *KeyValue, err error) {
 	// request format: "https://api.keyvalue.xyz/new/some-key"
-	if result, err := postUrl(fmt.Sprintf("https://api.keyvalue.xyz/new/%s", url.QueryEscape(key))); err == nil {
+	result, err := postURL(fmt.Sprintf("https://api.keyvalue.xyz/new/%s", url.QueryEscape(key)))
+	if err == nil {
 		// result format: "https://api.keyvalue.xyz/0123456/some-key"
 		splits := strings.Split(result, "/")
 		cnt := len(splits)
@@ -40,12 +44,12 @@ func NewKeyValue(key string) (kv *KeyValue, err error) {
 			Token: t,
 			Key:   k,
 		}, nil
-	} else {
-		return nil, err
 	}
+
+	return nil, err
 }
 
-// Get a key-value with stored token and key string
+// NewKeyValueWithToken gets a key-value with stored token and key string
 func NewKeyValueWithToken(token, key string) *KeyValue {
 	return &KeyValue{
 		Token: token,
@@ -53,17 +57,17 @@ func NewKeyValueWithToken(token, key string) *KeyValue {
 	}
 }
 
-// Set a value
+// Set sets a value
 func (kv *KeyValue) Set(value string) error {
 	// request format: "https://api.keyvalue.xyz/0123456/some-key/some-value"
-	if _, err := postUrl(fmt.Sprintf("https://api.keyvalue.xyz/%s/%s/%s", kv.Token, url.QueryEscape(kv.Key), url.QueryEscape(value))); err != nil {
+	if _, err := postURL(fmt.Sprintf("https://api.keyvalue.xyz/%s/%s/%s", kv.Token, url.QueryEscape(kv.Key), url.QueryEscape(value))); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// Set a value (and validate it by comparing with the changed value)
+// SetAndValidate sets a value (and validate it by comparing with the changed value)
 func (kv *KeyValue) SetAndValidate(value string) error {
 	if err := kv.Set(value); err != nil {
 		return err
@@ -78,67 +82,67 @@ func (kv *KeyValue) SetAndValidate(value string) error {
 	return nil
 }
 
-// Set an object as a value
+// SetObject sets an object as a value
 func (kv *KeyValue) SetObject(obj interface{}) error {
-	if bytes, err := json.Marshal(obj); err == nil {
+	bytes, err := json.Marshal(obj)
+	if err == nil {
 		return kv.Set(string(bytes))
-	} else {
-		return err
 	}
+
+	return err
 }
 
-// Set an object (and validate it by calling the given function)
-func (kv *KeyValue) SetObjectAndValidateFunc(obj interface{}, equals func(returned string, requested interface{}) bool) error {
-	if bytes, err := json.Marshal(obj); err == nil {
-		return kv.Set(string(bytes))
-	} else {
-		return err
-	}
-
-	if v, err := kv.Get(); err != nil {
-		return err
-	} else {
-		if !equals(v, obj) {
-			return fmt.Errorf("Returned object is different from the request: %s - %+v", v, obj)
-		}
-	}
-
-	return nil
-}
-
-// Get a stored value
+// Get gets a stored value
 func (kv *KeyValue) Get() (string, error) {
 	// request format: "https://api.keyvalue.xyz/0123456/some-key"
-	if result, err := getUrl(fmt.Sprintf("https://api.keyvalue.xyz/%s/%s", kv.Token, url.QueryEscape(kv.Key))); err != nil {
+	result, err := getURL(fmt.Sprintf("https://api.keyvalue.xyz/%s/%s", kv.Token, url.QueryEscape(kv.Key)))
+
+	if err != nil {
 		return "", err
-	} else {
-		return result, nil
 	}
+
+	return result, nil
 }
 
-func postUrl(url string) (string, error) {
+func postURL(url string) (string, error) {
 	return request("POST", url)
 }
 
-func getUrl(url string) (string, error) {
+func getURL(url string) (string, error) {
 	return request("GET", url)
 }
 
 func request(method, url string) (result string, err error) {
 	var req *http.Request
 	if req, err = http.NewRequest(method, url, nil); err == nil {
-		var resp *http.Response
-		client := &http.Client{}
-		if resp, err = client.Do(req); err == nil {
-			defer resp.Body.Close()
+		client := &http.Client{
+			Transport: &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout:   10 * time.Second,
+					KeepAlive: 300 * time.Second,
+				}).Dial,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ResponseHeaderTimeout: 10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
+		}
 
+		var resp *http.Response
+		resp, err = client.Do(req)
+
+		if resp != nil {
+			defer resp.Body.Close()
+		}
+
+		if err == nil {
 			if resp.StatusCode == 200 {
 				res, _ := ioutil.ReadAll(resp.Body)
 
 				return strings.TrimSuffix(string(res), "\n"), nil
-			} else {
-				return "", fmt.Errorf("Request error: %s", resp.Status)
 			}
+
+			return "", fmt.Errorf("Request error: %s", resp.Status)
 		}
 	}
 
